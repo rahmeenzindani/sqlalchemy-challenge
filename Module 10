@@ -1,0 +1,216 @@
+%matplotlib inline
+from matplotlib import style
+style.use('fivethirtyeight')
+import matplotlib.pyplot as plt
+
+import numpy as np
+import pandas as pd
+import datetime as dt
+
+git clone https://github.com/your-username/sqlalchemy-challenge.git
+
+cd sqlalchemy-challenge
+mkdir SurfsUp # type: ignore
+
+cd SurfsUp
+git add .
+git commit -m "Initial commit with Jupyter notebook, app.py, and database"
+git push origin main
+
+
+# Python SQL toolkit and Object Relational Mapper
+import sqlalchemy
+from sqlalchemy.ext.automap import automap_base
+from sqlalchemy.orm import Session
+from sqlalchemy import create_engine, func
+
+# create engine to hawaii.sqlite
+engine = create_engine("sqlite:///Resources/hawaii.sqlite")
+
+# reflect an existing database into a new model
+from sqlalchemy import create_engine
+from sqlalchemy.ext.automap import automap_base
+from sqlalchemy.orm import Session
+
+# Create an engine to connect to the SQLite database
+engine = create_engine('sqlite:///path_to_sql_alchemy_challenge.sqlite')
+
+# Create a base class for the automap feature
+Base = automap_base()
+
+# Reflect the tables from the database
+Base.prepare(engine, reflect=True)
+
+# Access the classes for the tables
+Measurement = Base.classes.measurement
+Station = Base.classes.station
+
+# Create a session to interact with the database
+session = Session(engine)
+
+# Query all rows from the Measurement table
+results = session.query(Measurement).all()
+
+# Print the results
+for result in results:
+    print(result.__dict__)
+
+# Close the session
+session.close()
+
+# reflect the tables
+from sqlalchemy import create_engine
+from sqlalchemy.ext.automap import automap_base
+from sqlalchemy.orm import Session
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Create engine and connect to SQLite database
+engine = create_engine('sqlite:///Resources/hawaii.sqlite')
+
+# Reflect the tables
+Base = automap_base()
+Base.prepare(engine, reflect=True)
+
+# Save references to the tables
+Station = Base.classes.station
+Measurement = Base.classes.measurement
+
+# Create session
+session = Session(engine)
+
+
+
+# Find the most recent date
+most_recent_date = session.query(Measurement.date).order_by(Measurement.date.desc()).first()[0]
+
+# Calculate the date one year ago from the most recent date
+from datetime import datetime, timedelta
+most_recent_date = datetime.strptime(most_recent_date, '%Y-%m-%d')
+one_year_ago = most_recent_date - timedelta(days=365)
+
+# Query for the last 12 months of precipitation data
+results = session.query(Measurement.date, Measurement.prcp).filter(Measurement.date >= one_year_ago).all()
+
+# Load results into a DataFrame
+df = pd.DataFrame(results, columns=['date', 'prcp'])
+df['date'] = pd.to_datetime(df['date'])
+df.set_index('date', inplace=True)
+df.sort_index(inplace=True)
+
+# Plot the results
+df.plot(y='prcp', use_index=True, legend=False)
+plt.title('Precipitation Over the Last 12 Months')
+plt.xlabel('Date')
+plt.ylabel('Precipitation (inches)')
+plt.show()
+
+# Print summary statistics
+print(df.describe())
+
+
+
+
+# Total number of stations
+total_stations = session.query(Station).count()
+print(f"Total number of stations: {total_stations}")
+
+
+# Histogram plot
+df_temp.plot.hist(bins=12)
+plt.title(f'Temperature Observations for Station {most_active_station}')
+plt.xlabel('Temperature')
+plt.ylabel('Frequency')
+plt.show()
+
+
+
+
+# Most active stations
+active_stations = session.query(Measurement.station, func.count(Measurement.station)).group_by(Measurement.station).order_by(func.count(Measurement.station).desc()).all()
+most_active_station = active_stations[0][0]
+print(f"Most active station: {most_active_station}")
+
+# Temperature analysis for the most active station
+temp_data = session.query(Measurement.tobs).filter(Measurement.station == most_active_station).filter(Measurement.date >= one_year_ago).all()
+df_temp = pd.DataFrame(temp_data, columns=['tobs'])
+
+
+from flask import Flask, jsonify
+from sqlalchemy import create_engine
+from sqlalchemy.ext.automap import automap_base
+from sqlalchemy.orm import Session
+from datetime import datetime, timedelta
+
+app = Flask(__name__)
+
+# Set up database connection
+engine = create_engine('sqlite:///Resources/hawaii.sqlite')
+Base = automap_base()
+Base.prepare(engine, reflect=True)
+Measurement = Base.classes.measurement
+Station = Base.classes.station
+
+session = Session(engine)
+
+@app.route('/')
+def home():
+    return (
+        f"Welcome to the Climate API!<br>"
+        f"Available Routes:<br>"
+        f"/api/v1.0/precipitation<br>"
+        f"/api/v1.0/stations<br>"
+        f"/api/v1.0/tobs<br>"
+        f"/api/v1.0/&lt;start&gt;<br>"
+        f"/api/v1.0/&lt;start&gt;/&lt;end&gt;<br>"
+    )
+
+@app.route('/api/v1.0/precipitation')
+def precipitation():
+    one_year_ago = datetime.utcnow() - timedelta(days=365)
+    results = session.query(Measurement.date, Measurement.prcp).filter(Measurement.date >= one_year_ago).all()
+    precip_dict = {date: prcp for date, prcp in results}
+    return jsonify(precip_dict)
+
+@app.route('/api/v1.0/stations')
+def stations():
+    results = session.query(Station.station, Station.name).all()
+    stations_list = [{'station': station, 'name': name} for station, name in results]
+    return jsonify(stations_list)
+
+@app.route('/api/v1.0/tobs')
+def tobs():
+    most_recent_date = session.query(Measurement.date).order_by(Measurement.date.desc()).first()[0]
+    most_recent_date = datetime.strptime(most_recent_date, '%Y-%m-%d')
+    one_year_ago = most_recent_date - timedelta(days=365)
+    most_active_station = session.query(Measurement.station).group_by(Measurement.station).order_by(func.count().desc()).first()[0]
+    results = session.query(Measurement.date, Measurement.tobs).filter(Measurement.station == most_active_station).filter(Measurement.date >= one_year_ago).all()
+    tobs_list = [{'date': date, 'tobs': tobs} for date, tobs in results]
+    return jsonify(tobs_list)
+
+@app.route('/api/v1.0/<start>')
+def start(start):
+    results = session.query(
+        func.min(Measurement.tobs),
+        func.avg(Measurement.tobs),
+        func.max(Measurement.tobs)
+    ).filter(Measurement.date >= start).all()
+    temps = [{'TMIN': results[0][0], 'TAVG': results[0][1], 'TMAX': results[0][2]}]
+    return jsonify(temps)
+
+@app.route('/api/v1.0/<start>/<end>')
+def start_end(start, end):
+    results = session.query(
+        func.min(Measurement.tobs),
+        func.avg(Measurement.tobs),
+        func.max(Measurement.tobs)
+    ).filter(Measurement.date >= start).filter(Measurement.date <= end).all()
+    temps = [{'TMIN': results[0][0], 'TAVG': results[0][1], 'TMAX': results[0][2]}]
+    return jsonify(temps)
+
+if __name__ == '__main__':
+    app.run(debug=True)
+
+
+# Close Session
+session.close()
